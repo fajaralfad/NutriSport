@@ -38,4 +38,12 @@ class UserData {
     required this.intensity,
     required this.goal,
   });
+
+  get dailyCalories => null;
+
+  get progress => null;
+
+  get waterIntake => null;
+
+  get bmi => null;
 }

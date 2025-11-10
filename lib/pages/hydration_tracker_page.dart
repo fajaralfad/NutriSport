@@ -18,7 +18,6 @@ class _HydrationTrackerPageState extends State<HydrationTrackerPage> {
   String _intensity = 'Sedang';
   double _consumedWater = 0.0;
   double _recommendedWater = 0.0;
-  DateTime _selectedDate = DateTime.now();
 
   @override
   void initState() {
@@ -83,18 +82,6 @@ class _HydrationTrackerPageState extends State<HydrationTrackerPage> {
   DatabaseService.saveHydrationData(hydrationData);
   }
 
-  void _saveHydrationData(double weight, double duration) {
-    final hydrationData = HydrationData(
-      weight: weight,
-      exerciseDuration: duration,
-      intensity: _intensity,
-      recommendedWater: _recommendedWater,
-      consumedWater: _consumedWater,
-      date: _selectedDate,
-    );
-
-    DatabaseService.saveHydrationData(hydrationData);
-  }
 
   void _updateWaterConsumption(double newAmount) {
   setState(() {
