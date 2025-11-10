@@ -145,7 +145,6 @@ class _HomePageState extends State<HomePage>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (_userData != null) _buildWelcomeSection(context, isDark),
-        _buildQuickStats(context, isDark),
         const SizedBox(height: 24),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -268,97 +267,7 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  Widget _buildQuickStats(BuildContext context, bool isDark) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF374151) : Colors.grey[100],
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey[300]!,
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildStatItem(
-            context,
-            Icons.local_fire_department_rounded,
-            'Kalori',
-            '0',
-            Colors.orange,
-            isDark,
-          ),
-          _buildStatDivider(isDark),
-          _buildStatItem(
-            context,
-            Icons.fitness_center_rounded,
-            'Protein',
-            '0g',
-            Colors.red,
-            isDark,
-          ),
-          _buildStatDivider(isDark),
-          _buildStatItem(
-            context,
-            Icons.water_drop_rounded,
-            'Hidrasi',
-            '0%',
-            Colors.blue,
-            isDark,
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildStatItem(
-    BuildContext context,
-    IconData icon,
-    String label,
-    String value,
-    Color color,
-    bool isDark,
-  ) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, color: color, size: 20),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: isDark ? Colors.white : const Color(0xFF1F2937),
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color: isDark ? Colors.grey[400] : Colors.grey[600],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatDivider(bool isDark) {
-    return Container(
-      height: 40,
-      width: 1,
-      color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey[300],
-    );
-  }
 
   Widget _buildModernFeatureCard(
     BuildContext context,
