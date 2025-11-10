@@ -137,174 +137,185 @@ class _NutritionCalculatorPageState extends State<NutritionCalculatorPage> {
           key: _formKey,
           child: Column(
             children: [
-              // Personal Information
-              _buildSectionHeader('Informasi Pribadi'),
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nama',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Masukkan nama Anda';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              Row(
+              // Personal Information Card
+              _buildSectionCard(
+                title: 'Informasi Pribadi',
+                icon: Icons.person_outline,
                 children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _ageController,
-                      decoration: const InputDecoration(
-                        labelText: 'Usia',
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.number,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Masukkan usia';
-                        }
-                        return null;
-                      },
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nama',
+                      border: OutlineInputBorder(),
                     ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Masukkan nama Anda';
+                      }
+                      return null;
+                    },
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: _gender,
-                      decoration: const InputDecoration(
-                        labelText: 'Jenis Kelamin',
-                        border: OutlineInputBorder(),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _ageController,
+                          decoration: const InputDecoration(
+                            labelText: 'Usia',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Masukkan usia';
+                            }
+                            return null;
+                          },
+                        ),
                       ),
-                      items: ['Pria', 'Wanita']
-                          .map((gender) => DropdownMenuItem(
-                                value: gender,
-                                child: Text(gender),
-                              ))
-                          .toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _gender = value!;
-                        });
-                      },
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: _gender,
+                          decoration: const InputDecoration(
+                            labelText: 'Jenis Kelamin',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: ['Pria', 'Wanita']
+                              .map((gender) => DropdownMenuItem(
+                                    value: gender,
+                                    child: Text(gender),
+                                  ))
+                              .toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _gender = value!;
+                            });
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _weightController,
-                      decoration: const InputDecoration(
-                        labelText: 'Berat Badan (kg)',
-                        border: OutlineInputBorder(),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _weightController,
+                          decoration: const InputDecoration(
+                            labelText: 'Berat Badan (kg)',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Masukkan berat badan';
+                            }
+                            return null;
+                          },
+                        ),
                       ),
-                      keyboardType: TextInputType.number,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Masukkan berat badan';
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _heightController,
-                      decoration: const InputDecoration(
-                        labelText: 'Tinggi Badan (cm)',
-                        border: OutlineInputBorder(),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _heightController,
+                          decoration: const InputDecoration(
+                            labelText: 'Tinggi Badan (cm)',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Masukkan tinggi badan';
+                            }
+                            return null;
+                          },
+                        ),
                       ),
-                      keyboardType: TextInputType.number,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Masukkan tinggi badan';
-                        }
-                        return null;
-                      },
-                    ),
+                    ],
                   ),
                 ],
               ),
 
-              const SizedBox(height: 24),
-              _buildSectionHeader('Data Olahraga'),
-              
-              DropdownButtonFormField<String>(
-                value: _sportType,
-                decoration: const InputDecoration(
-                  labelText: 'Jenis Olahraga',
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  'Strength/Muscle',
-                  'Endurance/Running',
-                  'Mixed/Team Sport',
-                ]
-                    .map((sport) => DropdownMenuItem(
-                          value: sport,
-                          child: Text(sport),
-                        ))
-                    .toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _sportType = value!;
-                  });
-                },
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: _intensity,
-                decoration: const InputDecoration(
-                  labelText: 'Intensitas Latihan',
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  'Sedentary',
-                  'Ringan',
-                  'Sedang',
-                  'Berat',
-                  'Atlet Intens',
-                ]
-                    .map((intensity) => DropdownMenuItem(
-                          value: intensity,
-                          child: Text(intensity),
-                        ))
-                    .toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _intensity = value!;
-                  });
-                },
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: _goal,
-                decoration: const InputDecoration(
-                  labelText: 'Tujuan',
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  'Cutting',
-                  'Maintenance',
-                  'Bulking',
-                ]
-                    .map((goal) => DropdownMenuItem(
-                          value: goal,
-                          child: Text(goal),
-                        ))
-                    .toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _goal = value!;
-                  });
-                },
+              const SizedBox(height: 20),
+
+              // Sports Data Card
+              _buildSectionCard(
+                title: 'Data Olahraga',
+                icon: Icons.fitness_center_outlined,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: _sportType,
+                    decoration: const InputDecoration(
+                      labelText: 'Jenis Olahraga',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      'Strength/Muscle',
+                      'Endurance/Running',
+                      'Mixed/Team Sport',
+                    ]
+                        .map((sport) => DropdownMenuItem(
+                              value: sport,
+                              child: Text(sport),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _sportType = value!;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: _intensity,
+                    decoration: const InputDecoration(
+                      labelText: 'Intensitas Latihan',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      'Sedentary',
+                      'Ringan',
+                      'Sedang',
+                      'Berat',
+                      'Atlet Intens',
+                    ]
+                        .map((intensity) => DropdownMenuItem(
+                              value: intensity,
+                              child: Text(intensity),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _intensity = value!;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: _goal,
+                    decoration: const InputDecoration(
+                      labelText: 'Tujuan',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      'Cutting',
+                      'Maintenance',
+                      'Bulking',
+                    ]
+                        .map((goal) => DropdownMenuItem(
+                              value: goal,
+                              child: Text(goal),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _goal = value!;
+                      });
+                    },
+                  ),
+                ],
               ),
 
               const SizedBox(height: 32),
@@ -318,7 +329,6 @@ class _NutritionCalculatorPageState extends State<NutritionCalculatorPage> {
 
               if (_calculatedData != null) ...[
                 const SizedBox(height: 32),
-                _buildSectionHeader('Hasil Perhitungan'),
                 NutritionCard(nutritionData: _calculatedData!),
               ],
             ],
@@ -328,14 +338,62 @@ class _NutritionCalculatorPageState extends State<NutritionCalculatorPage> {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Text(
-        title,
-        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
+  Widget _buildSectionCard({
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(
+          color: Colors.grey.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    icon,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 16),
+            ...children,
+          ],
+        ),
       ),
     );
   }
