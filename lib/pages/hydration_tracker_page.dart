@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../services/hydration_service.dart';
-import '../services/database_service.dart';
-import '../utils/hydration_validator.dart';
-import '../widgets/hydration/hydration_page_widgets.dart';
-import '../widgets/hydration/hydration_tracker.dart';
+import 'package:nutrisport/widgets/hydration/hydration_info_banner.dart';
+import 'package:nutrisport/widgets/hydration/hydration_input_section.dart';
+import 'package:nutrisport/widgets/hydration/hydration_progress_section.dart';
+import 'package:nutrisport/widgets/hydration/hydration_tips_section.dart';
+import 'package:nutrisport/utils/hydration_utils.dart';
 
 class HydrationTrackerPage extends StatefulWidget {
   const HydrationTrackerPage({super.key});
@@ -14,161 +14,21 @@ class HydrationTrackerPage extends StatefulWidget {
 
 class _HydrationTrackerPageState extends State<HydrationTrackerPage>
     with SingleTickerProviderStateMixin {
-  final TextEditingController _weightController = TextEditingController();
-  final TextEditingController _durationController = TextEditingController();
-  
-  String _intensity = 'Sedang';
-  double _consumedWater = 0.0;
-  double _recommendedWater = 0.0;
-
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
+  late final HydrationController _controller;
+  late final Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
-    _initAnimation();
-    _loadData();
-  }
-
-  void _initAnimation() {
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-    _fadeAnimation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    );
-    _animationController.forward();
+    _controller = HydrationController();
+    _fadeAnimation = HydrationUtils.createFadeAnimation(this);
+    _controller.initialize();
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
-    _weightController.dispose();
-    _durationController.dispose();
+    _controller.dispose();
     super.dispose();
-  }
-
-  void _loadData() {
-    final hydrationData = HydrationService.loadTodayData();
-    
-    if (hydrationData != null) {
-      setState(() {
-        _consumedWater = hydrationData.consumedWater;
-        _recommendedWater = hydrationData.recommendedWater;
-        _durationController.text = hydrationData.exerciseDuration.toString();
-        _intensity = hydrationData.intensity;
-        _weightController.text = hydrationData.weight.toString();
-      });
-    } else {
-      _loadUserWeight();
-    }
-  }
-
-  void _loadUserWeight() {
-    final userData = DatabaseService.getUserData();
-    if (userData != null) {
-      _weightController.text = userData.weight.toString();
-    }
-  }
-
-  void _calculateHydrationNeeds() {
-    if (!HydrationValidator.validateInputs(
-        _weightController.text, _durationController.text)) {
-      _showValidationError();
-      return;
-    }
-
-    final weight = HydrationValidator.parseDouble(_weightController.text);
-    final duration = HydrationValidator.parseDouble(_durationController.text);
-
-    if (weight == null || duration == null) {
-      _showValidationError();
-      return;
-    }
-
-    final recommended = HydrationService.calculateHydrationNeeds(
-      weight: weight,
-      duration: duration,
-      intensity: _intensity,
-    );
-
-    setState(() {
-      _recommendedWater = recommended;
-    });
-
-    final hydrationData = HydrationService.createHydrationData(
-      weight: weight,
-      duration: duration,
-      intensity: _intensity,
-      recommendedWater: _recommendedWater,
-      consumedWater: _consumedWater,
-    );
-
-    HydrationService.saveHydrationData(hydrationData);
-    _showSuccessMessage();
-  }
-
-  void _updateWaterConsumption(double newAmount) {
-    setState(() {
-      _consumedWater = newAmount;
-    });
-
-    final weight = HydrationValidator.parseDouble(_weightController.text);
-    final duration = HydrationValidator.parseDouble(_durationController.text);
-
-    if (weight != null && duration != null) {
-      final hydrationData = HydrationService.createHydrationData(
-        weight: weight,
-        duration: duration,
-        intensity: _intensity,
-        recommendedWater: _recommendedWater,
-        consumedWater: _consumedWater,
-      );
-
-      HydrationService.saveHydrationData(hydrationData);
-    }
-  }
-
-  void _showValidationError() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Row(
-          children: [
-            Icon(Icons.warning_rounded, color: Colors.white),
-            SizedBox(width: 12),
-            Text('Masukkan berat badan dan durasi latihan'),
-          ],
-        ),
-        backgroundColor: Colors.orange,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-    );
-  }
-
-  void _showSuccessMessage() {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.white),
-            SizedBox(width: 12),
-            Text('Kebutuhan hidrasi berhasil dihitung!'),
-          ],
-        ),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-    );
   }
 
   @override
@@ -193,27 +53,15 @@ class _HydrationTrackerPageState extends State<HydrationTrackerPage>
               const SizedBox(height: 24),
               HydrationInputSection(
                 isDark: isDark,
-                weightController: _weightController,
-                durationController: _durationController,
-                intensity: _intensity,
-                onIntensityChanged: (value) {
-                  setState(() => _intensity = value!);
-                },
-                onCalculate: _calculateHydrationNeeds,
+                controller: _controller,
+                onCalculate: () => _handleCalculate(context),
               ),
               const SizedBox(height: 24),
-              if (_recommendedWater > 0) ...[
+              if (_controller.recommendedWater > 0) ...[
                 HydrationProgressSection(
                   isDark: isDark,
-                  currentAmount: _consumedWater,
-                  targetAmount: _recommendedWater,
-                  onUpdate: _updateWaterConsumption,
-                ),
-                const SizedBox(height: 16),
-                HydrationTracker(
-                  currentAmount: _consumedWater,
-                  targetAmount: _recommendedWater,
-                  onUpdate: _updateWaterConsumption,
+                  controller: _controller,
+                  onUpdate: _handleWaterUpdate,
                 ),
                 const SizedBox(height: 24),
               ],
@@ -224,5 +72,20 @@ class _HydrationTrackerPageState extends State<HydrationTrackerPage>
         ),
       ),
     );
+  }
+
+  void _handleCalculate(BuildContext context) {
+    if (_controller.calculateHydrationNeeds()) {
+      setState(() {});
+      HydrationUtils.showSuccessMessage(context, 'Kebutuhan hidrasi berhasil dihitung!');
+    } else {
+      HydrationUtils.showWarningMessage(context, 'Masukkan berat badan dan durasi latihan');
+    }
+  }
+
+  void _handleWaterUpdate(double newAmount) {
+    setState(() {
+      _controller.updateWaterConsumption(newAmount);
+    });
   }
 }

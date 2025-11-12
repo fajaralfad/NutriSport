@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nutrisport/utils/hydration_utils.dart';
 
 class HydrationTracker extends StatelessWidget {
   final double currentAmount;
@@ -66,7 +67,7 @@ class HydrationTracker extends StatelessWidget {
                   value: progress,
                   strokeWidth: 14,
                   backgroundColor: Colors.transparent,
-                  color: _getProgressColor(progress),
+                  color: HydrationUtils.getProgressColor(progress),
                   strokeCap: StrokeCap.round,
                 ),
               ),
@@ -93,7 +94,7 @@ class HydrationTracker extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: _getProgressColor(progress).withOpacity(0.1),
+                      color: HydrationUtils.getProgressColor(progress).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -101,7 +102,7 @@ class HydrationTracker extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
-                        color: _getProgressColor(progress),
+                        color: HydrationUtils.getProgressColor(progress),
                       ),
                     ),
                   ),
@@ -309,13 +310,5 @@ class HydrationTracker extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  Color _getProgressColor(double progress) {
-    if (progress < 0.3) return Colors.red;
-    if (progress < 0.5) return Colors.orange;
-    if (progress < 0.7) return Colors.amber;
-    if (progress < 1.0) return Colors.lightGreen;
-    return Colors.green;
   }
 }
