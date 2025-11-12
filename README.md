@@ -36,10 +36,6 @@ Aplikasi ini dapat digunakan secara **offline** dengan penyimpanan data lokal.
   - Mencatat konsumsi air harian
   - Rekomendasi volume hidrasi
 
-- 🍱 **Rekomendasi Menu**
-  - Disesuaikan dengan jenis olahraga (endurance, strength, mix)
-  - Dibagi fase: pre-workout, intra-workout, post-workout
-
 - ⏰ **Reminder Makan & Suplemen**
   - Notifikasi terjadwal harian
 
