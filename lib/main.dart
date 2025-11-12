@@ -3,7 +3,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:nutrisport/pages/home_page.dart';
 import 'package:nutrisport/services/theme_service.dart';
 import 'package:nutrisport/services/notification_service.dart';
-import 'package:nutrisport/services/database_service.dart'; // TAMBAHKAN INI
+import 'package:nutrisport/services/database_service.dart'; 
 import 'package:nutrisport/models/user_data.dart';
 import 'package:nutrisport/models/nutrition_data.dart';
 import 'package:nutrisport/models/hydration_data.dart';
@@ -26,6 +26,8 @@ void main() async {
   await Hive.openBox<NutritionData>('nutrition_data');
   await Hive.openBox<HydrationData>('hydration_data');
   await Hive.openBox<DailyLog>('daily_logs');
+
+  await ThemeService.loadTheme();
   
   await DatabaseService.init();
   

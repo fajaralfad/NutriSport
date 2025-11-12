@@ -4,8 +4,7 @@ import 'package:nutrisport/services/database_service.dart';
 import 'package:nutrisport/services/theme_service.dart';
 import 'nutrition_calculator_page.dart';
 import 'hydration_tracker_page.dart';
-//import 'meal_recommendation_page.dart';
-import 'reminder_page.dart';
+// import 'reminder_page.dart';
 import 'progress_tracking_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -102,17 +101,7 @@ class _HomePageState extends State<HomePage>
                   () => _navigateTo(const HydrationTrackerPage()),
                   isDark,
                 ),
-                /*_buildModernFeatureCard(
-                  context,  
-                  'Menu',  
-                  Icons.restaurant_rounded,
-                  const Color(0xFF10B981),
-                  const Color(0xFF34D399),
-                  'Rekomendasi makanan',
-                  () => _navigateTo(const MealRecommendationPage()),
-                  isDark,
-                ),*/
-                _buildModernFeatureCard(
+               /* _buildModernFeatureCard(
                   context,
                   'Pengingat',
                   Icons.notifications_active_rounded,
@@ -121,7 +110,7 @@ class _HomePageState extends State<HomePage>
                   'Atur notifikasi',
                   () => _navigateTo(const ReminderPage()),
                   isDark,
-                ),
+                ),*/
                 _buildModernFeatureCard(
                   context,
                   'Progress',
@@ -266,8 +255,6 @@ class _HomePageState extends State<HomePage>
       ),
     );
   }
-
-
 
   Widget _buildModernFeatureCard(
     BuildContext context,

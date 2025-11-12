@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:nutrisport/models/daily_log.dart';
 import 'package:nutrisport/services/database_service.dart';
+import 'package:nutrisport/widgets/tracking/progress_widgets.dart';
 
 class ProgressTrackingPage extends StatefulWidget {
   const ProgressTrackingPage({super.key});
@@ -10,298 +11,120 @@ class ProgressTrackingPage extends StatefulWidget {
   State<ProgressTrackingPage> createState() => _ProgressTrackingPageState();
 }
 
-class _ProgressTrackingPageState extends State<ProgressTrackingPage> {
+class _ProgressTrackingPageState extends State<ProgressTrackingPage>
+    with SingleTickerProviderStateMixin {
+  // Controllers
   final TextEditingController _weightController = TextEditingController();
   final TextEditingController _waterController = TextEditingController();
   final TextEditingController _caloriesController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
+  // State
   List<DailyLog> _dailyLogs = [];
   String _selectedChart = 'weight';
 
+  // Animation
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
   @override
   void initState() {
-  super.initState();
-  _loadDailyLogs();
-  _loadTodayData();
+    super.initState();
+    _initializeAnimation();
+    _loadData();
+  }
+
+  @override
+  void dispose() {
+    _disposeControllers();
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  // Initialization Methods
+  void _initializeAnimation() {
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    );
+    _animationController.forward();
+  }
+
+  void _loadData() {
+    _loadTodayData();
+    _loadDailyLogs();
   }
 
   void _loadTodayData() {
-  final todayLog = DatabaseService.getTodayDailyLog();
-  if (todayLog != null) {
-    setState(() {
-      _weightController.text = todayLog.weight.toString();
-      _waterController.text = todayLog.waterConsumed.toString();
-      _caloriesController.text = todayLog.caloriesConsumed.toString();
-      _notesController.text = todayLog.notes;
-    });
-  }
-  } 
-
-  void _loadDailyLogs() {
-  setState(() {
-    _dailyLogs = DatabaseService.getDailyLogsSorted();
-  });
-  }
-
- void _addDailyLog() {
-  if (_weightController.text.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Masukkan berat badan terlebih dahulu')),
-    );
-    return;
-  }
-
-  final log = DailyLog(
-    date: DateTime.now(),
-    weight: double.parse(_weightController.text),
-    waterConsumed: _waterController.text.isEmpty ? 0.0 : double.parse(_waterController.text),
-    caloriesConsumed: _caloriesController.text.isEmpty ? 0.0 : double.parse(_caloriesController.text),
-    notes: _notesController.text,
-  );
-
-  DatabaseService.saveDailyLog(log);
-  _loadDailyLogs();
-
-  // Clear form
-  _weightController.clear();
-  _waterController.clear();
-  _caloriesController.clear();
-  _notesController.clear();
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Data harian berhasil disimpan!')),
-  );
-  }
-
-  List<FlSpot> _getWeightSpots() {
-    return _dailyLogs.asMap().entries.map((entry) {
-      return FlSpot(
-        entry.key.toDouble(),
-        entry.value.weight,
-      );
-    }).toList();
-  }
-
-  List<FlSpot> _getWaterSpots() {
-    return _dailyLogs.asMap().entries.map((entry) {
-      return FlSpot(
-        entry.key.toDouble(),
-        entry.value.waterConsumed,
-      );
-    }).toList();
-  }
-
-  List<FlSpot> _getCalorieSpots() {
-    return _dailyLogs.asMap().entries.map((entry) {
-      return FlSpot(
-        entry.key.toDouble(),
-        entry.value.caloriesConsumed,
-      );
-    }).toList();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tracking Harian & Progress'),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // Input Form
-            Card(
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    const Text(
-                      'Catatan Harian',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _weightController,
-                            decoration: const InputDecoration(
-                              labelText: 'Berat (kg)',
-                              border: OutlineInputBorder(),
-                            ),
-                            keyboardType: TextInputType.number,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _waterController,
-                            decoration: const InputDecoration(
-                              labelText: 'Air (L)',
-                              border: OutlineInputBorder(),
-                            ),
-                            keyboardType: TextInputType.number,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _caloriesController,
-                      decoration: const InputDecoration(
-                        labelText: 'Kalori (kcal)',
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _notesController,
-                      decoration: const InputDecoration(
-                        labelText: 'Catatan Tambahan',
-                        border: OutlineInputBorder(),
-                      ),
-                      maxLines: 3,
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: _addDailyLog,
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 50),
-                      ),
-                      child: const Text('Simpan Data Harian'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Chart Selection
-            Card(
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    const Text(
-                      'Grafik Progress',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SegmentedButton<String>(
-                      segments: const [
-                        ButtonSegment<String>(
-                          value: 'weight',
-                          label: Text('Berat Badan'),
-                          icon: Icon(Icons.monitor_weight),
-                        ),
-                        ButtonSegment<String>(
-                          value: 'water',
-                          label: Text('Hidrasi'),
-                          icon: Icon(Icons.water_drop),
-                        ),
-                        ButtonSegment<String>(
-                          value: 'calories',
-                          label: Text('Kalori'),
-                          icon: Icon(Icons.local_fire_department),
-                        ),
-                      ],
-                      selected: <String>{_selectedChart},
-                      onSelectionChanged: (Set<String> newSelection) {
-                        setState(() {
-                          _selectedChart = newSelection.first;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Chart
-            if (_dailyLogs.isNotEmpty) ...[
-              _buildProgressChart(),
-              const SizedBox(height: 24),
-            ],
-
-            // Recent Logs
-            _buildRecentLogs(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProgressChart() {
-    return Card(
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Text(
-              _getChartTitle(),
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 200,
-              child: LineChart(
-                LineChartData(
-                  gridData: const FlGridData(show: true),
-                  titlesData: const FlTitlesData(show: false),
-                  borderData: FlBorderData(show: false),
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: _getChartData(),
-                      isCurved: true,
-                      color: _getChartColor(),
-                      barWidth: 3,
-                      belowBarData: BarAreaData(
-                        show: true,
-                        color: _getChartColor().withOpacity(0.1),
-                      ),
-                      dotData: const FlDotData(show: true),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _getChartTitle() {
-    switch (_selectedChart) {
-      case 'weight':
-        return 'Progress Berat Badan (kg)';
-      case 'water':
-        return 'Konsumsi Air Harian (L)';
-      case 'calories':
-        return 'Konsumsi Kalori Harian (kcal)';
-      default:
-        return 'Progress';
+    final todayLog = DatabaseService.getTodayDailyLog();
+    if (todayLog != null) {
+      setState(() {
+        _weightController.text = todayLog.weight.toString();
+        _waterController.text = todayLog.waterConsumed.toString();
+        _caloriesController.text = todayLog.caloriesConsumed.toString();
+        _notesController.text = todayLog.notes;
+      });
     }
   }
 
+  void _loadDailyLogs() {
+    setState(() {
+      _dailyLogs = DatabaseService.getDailyLogsSorted();
+    });
+  }
+
+  void _disposeControllers() {
+    _weightController.dispose();
+    _waterController.dispose();
+    _caloriesController.dispose();
+    _notesController.dispose();
+  }
+
+  // Data Management Methods
+  void _addDailyLog() {
+    if (!_validateInput()) return;
+
+    final log = _createDailyLog();
+    DatabaseService.saveDailyLog(log);
+    _loadDailyLogs();
+    _clearForm();
+    _showSuccessMessage();
+  }
+
+  bool _validateInput() {
+    if (_weightController.text.isEmpty) {
+      _showWarningMessage('Masukkan berat badan terlebih dahulu');
+      return false;
+    }
+    return true;
+  }
+
+  DailyLog _createDailyLog() {
+    return DailyLog(
+      date: DateTime.now(),
+      weight: double.parse(_weightController.text),
+      waterConsumed: _waterController.text.isEmpty 
+          ? 0.0 
+          : double.parse(_waterController.text),
+      caloriesConsumed: _caloriesController.text.isEmpty 
+          ? 0.0 
+          : double.parse(_caloriesController.text),
+      notes: _notesController.text,
+    );
+  }
+
+  void _clearForm() {
+    _weightController.clear();
+    _waterController.clear();
+    _caloriesController.clear();
+    _notesController.clear();
+  }
+
+  // Chart Data Methods
   List<FlSpot> _getChartData() {
     switch (_selectedChart) {
       case 'weight':
@@ -315,104 +138,117 @@ class _ProgressTrackingPageState extends State<ProgressTrackingPage> {
     }
   }
 
-  Color _getChartColor() {
-    switch (_selectedChart) {
-      case 'weight':
-        return Colors.blue;
-      case 'water':
-        return Colors.lightBlue;
-      case 'calories':
-        return Colors.orange;
-      default:
-        return Colors.blue;
-    }
+  List<FlSpot> _getWeightSpots() {
+    return _dailyLogs.asMap().entries.map((entry) {
+      return FlSpot(entry.key.toDouble(), entry.value.weight);
+    }).toList();
   }
 
-  Widget _buildRecentLogs() {
-    if (_dailyLogs.isEmpty) {
-      return const Card(
-        elevation: 4,
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Text(
-            'Belum ada data tracking.\nMulai dengan mencatat data harian Anda.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey),
-          ),
-        ),
-      );
-    }
+  List<FlSpot> _getWaterSpots() {
+    return _dailyLogs.asMap().entries.map((entry) {
+      return FlSpot(entry.key.toDouble(), entry.value.waterConsumed);
+    }).toList();
+  }
 
-    final recentLogs = _dailyLogs.reversed.take(5).toList();
+  List<FlSpot> _getCalorieSpots() {
+    return _dailyLogs.asMap().entries.map((entry) {
+      return FlSpot(entry.key.toDouble(), entry.value.caloriesConsumed);
+    }).toList();
+  }
 
-    return Card(
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  // UI Feedback Methods
+  void _showSuccessMessage() {
+    _showSnackBar(
+      message: 'Data harian berhasil disimpan!',
+      icon: Icons.check_circle,
+      color: Colors.green,
+    );
+  }
+
+  void _showWarningMessage(String message) {
+    _showSnackBar(
+      message: message,
+      icon: Icons.warning_rounded,
+      color: Colors.orange,
+    );
+  }
+
+  void _showSnackBar({
+    required String message,
+    required IconData icon,
+    required Color color,
+  }) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
           children: [
-            const Text(
-              'Catatan Terbaru',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ...recentLogs.map((log) => _buildLogItem(log)),
+            Icon(icon, color: Colors.white),
+            const SizedBox(width: 12),
+            Text(message),
           ],
+        ),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
       ),
     );
   }
 
-  Widget _buildLogItem(DailyLog log) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(8),
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      backgroundColor: isDark ? Colors.grey[900] : Colors.grey[50],
+      appBar: AppBar(
+        title: const Text('Tracking & Progress'),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
       ),
-      child: Row(
-        children: [
-          Column(
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '${log.date.day}/${log.date.month}/${log.date.year}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
+              ProgressInfoBanner(isDark: isDark),
+              const SizedBox(height: 24),
+              ProgressInputSection(
+                isDark: isDark,
+                weightController: _weightController,
+                waterController: _waterController,
+                caloriesController: _caloriesController,
+                notesController: _notesController,
+                onSave: _addDailyLog,
               ),
-              Text(
-                'Berat: ${log.weight}kg | Air: ${log.waterConsumed}L',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
+              const SizedBox(height: 24),
+              ChartSelectionSection(
+                isDark: isDark,
+                selectedChart: _selectedChart,
+                onChartChanged: (newChart) {
+                  setState(() => _selectedChart = newChart);
+                },
               ),
-              if (log.notes.isNotEmpty)
-                Text(
-                  'Catatan: ${log.notes}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                    fontStyle: FontStyle.italic,
-                  ),
+              const SizedBox(height: 24),
+              if (_dailyLogs.isNotEmpty) ...[
+                ProgressChart(
+                  isDark: isDark,
+                  chartType: _selectedChart,
+                  data: _getChartData(),
                 ),
+                const SizedBox(height: 24),
+              ],
+              RecentLogsSection(
+                isDark: isDark,
+                dailyLogs: _dailyLogs,
+              ),
+              const SizedBox(height: 20),
             ],
           ),
-          const Spacer(),
-          Text(
-            '${log.caloriesConsumed.round()} kcal',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.orange,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

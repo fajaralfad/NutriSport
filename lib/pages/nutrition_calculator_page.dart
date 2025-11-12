@@ -3,7 +3,7 @@ import 'package:nutrisport/models/user_data.dart';
 import 'package:nutrisport/models/nutrition_data.dart';
 import 'package:nutrisport/services/calculation_service.dart';
 import 'package:nutrisport/services/database_service.dart';
-import 'package:nutrisport/widgets/nutrition_card.dart';
+import 'package:nutrisport/widgets/nutrition/nutrition_page_widgets.dart';
 
 class NutritionCalculatorPage extends StatefulWidget {
   final VoidCallback onDataSaved;
@@ -14,26 +14,57 @@ class NutritionCalculatorPage extends StatefulWidget {
   State<NutritionCalculatorPage> createState() => _NutritionCalculatorPageState();
 }
 
-class _NutritionCalculatorPageState extends State<NutritionCalculatorPage> {
+class _NutritionCalculatorPageState extends State<NutritionCalculatorPage>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   
+  // Controllers
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _ageController = TextEditingController();
   final TextEditingController _weightController = TextEditingController();
   final TextEditingController _heightController = TextEditingController();
   
+  // State variables
   String _gender = 'Pria';
   String _sportType = 'Strength/Muscle';
   String _intensity = 'Sedang';
   String _goal = 'Maintenance';
   
   NutritionData? _calculatedData;
+  bool _isCalculating = false;
+  
+  // Animation
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
-  super.initState();
-  _loadExistingData();  
-  } 
+    super.initState();
+    _initializeAnimation();
+    _loadExistingData();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _nameController.dispose();
+    _ageController.dispose();
+    _weightController.dispose();
+    _heightController.dispose();
+    super.dispose();
+  }
+
+  void _initializeAnimation() {
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    );
+    _animationController.forward();
+  }
 
   void _loadExistingData() {
     final userData = DatabaseService.getUserData();
@@ -50,7 +81,6 @@ class _NutritionCalculatorPageState extends State<NutritionCalculatorPage> {
       });
     }
 
-    // Load latest nutrition data
     final latestNutrition = DatabaseService.getLatestNutritionData();
     if (latestNutrition != null) {
       setState(() {
@@ -59,13 +89,16 @@ class _NutritionCalculatorPageState extends State<NutritionCalculatorPage> {
     }
   }
 
-  void _calculateNutrition() {
-  if (_formKey.currentState!.validate()) {
+  Future<void> _calculateNutrition() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isCalculating = true);
+    await Future.delayed(const Duration(milliseconds: 500));
+
     final weight = double.parse(_weightController.text);
     final height = double.parse(_heightController.text);
     final age = int.parse(_ageController.text);
 
-    // Calculate BMR
     final bmr = CalculationService.calculateBMR(
       weight: weight,
       height: height,
@@ -73,22 +106,18 @@ class _NutritionCalculatorPageState extends State<NutritionCalculatorPage> {
       gender: _gender,
     );
 
-    // Calculate TDEE
     final tdee = CalculationService.calculateTDEE(bmr, _intensity);
-
-    // Calculate Macronutrients
     final macros = CalculationService.calculateMacronutrients(
       weight: weight,
       sportType: _sportType,
       goal: _goal,
     );
 
-    // Adjust calories based on goal
     double adjustedCalories = tdee;
     if (_goal == 'Cutting') {
-      adjustedCalories = tdee * 0.8; // 20% deficit
+      adjustedCalories = tdee * 0.8;
     } else if (_goal == 'Bulking') {
-      adjustedCalories = tdee * 1.2; // 20% surplus
+      adjustedCalories = tdee * 1.2;
     }
 
     setState(() {
@@ -101,9 +130,14 @@ class _NutritionCalculatorPageState extends State<NutritionCalculatorPage> {
         calories: adjustedCalories,
         calculatedAt: DateTime.now(),
       );
+      _isCalculating = false;
     });
 
-    // Save user data
+    _saveData(weight, height, age);
+    _showSuccessSnackbar();
+  }
+
+  void _saveData(double weight, double height, int age) {
     final userData = UserData(
       name: _nameController.text,
       age: age,
@@ -118,283 +152,178 @@ class _NutritionCalculatorPageState extends State<NutritionCalculatorPage> {
     DatabaseService.saveUserData(userData);
     DatabaseService.saveNutritionData(_calculatedData!);
     widget.onDataSaved();
+  }
 
+  void _showSuccessSnackbar() {
+    if (!mounted) return;
+    
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Data berhasil disimpan!')),
-      );
-    }
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.white),
+            SizedBox(width: 12),
+            Text('Data berhasil disimpan!'),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
+      backgroundColor: isDark ? Colors.grey[900] : Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Kalkulator Kebutuhan Gizi'),
+        title: const Text('Kalkulator Gizi'),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              // Personal Information Card
-              _buildSectionCard(
-                title: 'Informasi Pribadi',
-                icon: Icons.person_outline,
-                children: [
-                  TextFormField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nama',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Masukkan nama Anda';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _ageController,
-                          decoration: const InputDecoration(
-                            labelText: 'Usia',
-                            border: OutlineInputBorder(),
-                          ),
-                          keyboardType: TextInputType.number,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Masukkan usia';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: _gender,
-                          decoration: const InputDecoration(
-                            labelText: 'Jenis Kelamin',
-                            border: OutlineInputBorder(),
-                          ),
-                          items: ['Pria', 'Wanita']
-                              .map((gender) => DropdownMenuItem(
-                                    value: gender,
-                                    child: Text(gender),
-                                  ))
-                              .toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _gender = value!;
-                            });
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _weightController,
-                          decoration: const InputDecoration(
-                            labelText: 'Berat Badan (kg)',
-                            border: OutlineInputBorder(),
-                          ),
-                          keyboardType: TextInputType.number,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Masukkan berat badan';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _heightController,
-                          decoration: const InputDecoration(
-                            labelText: 'Tinggi Badan (cm)',
-                            border: OutlineInputBorder(),
-                          ),
-                          keyboardType: TextInputType.number,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Masukkan tinggi badan';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 20),
-
-              // Sports Data Card
-              _buildSectionCard(
-                title: 'Data Olahraga',
-                icon: Icons.fitness_center_outlined,
-                children: [
-                  DropdownButtonFormField<String>(
-                    value: _sportType,
-                    decoration: const InputDecoration(
-                      labelText: 'Jenis Olahraga',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: [
-                      'Strength/Muscle',
-                      'Endurance/Running',
-                      'Mixed/Team Sport',
-                    ]
-                        .map((sport) => DropdownMenuItem(
-                              value: sport,
-                              child: Text(sport),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _sportType = value!;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: _intensity,
-                    decoration: const InputDecoration(
-                      labelText: 'Intensitas Latihan',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: [
-                      'Sedentary',
-                      'Ringan',
-                      'Sedang',
-                      'Berat',
-                      'Atlet Intens',
-                    ]
-                        .map((intensity) => DropdownMenuItem(
-                              value: intensity,
-                              child: Text(intensity),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _intensity = value!;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: _goal,
-                    decoration: const InputDecoration(
-                      labelText: 'Tujuan',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: [
-                      'Cutting',
-                      'Maintenance',
-                      'Bulking',
-                    ]
-                        .map((goal) => DropdownMenuItem(
-                              value: goal,
-                              child: Text(goal),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _goal = value!;
-                      });
-                    },
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: _calculateNutrition,
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-                child: const Text('Hitung Kebutuhan Gizi'),
-              ),
-
-              if (_calculatedData != null) ...[
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const InfoBanner(),
+                const SizedBox(height: 24),
+                _buildPersonalInfoSection(),
+                const SizedBox(height: 20),
+                _buildSportsDataSection(),
                 const SizedBox(height: 32),
-                NutritionCard(nutritionData: _calculatedData!),
+                CalculateButton(
+                  isCalculating: _isCalculating,
+                  onPressed: _calculateNutrition,
+                ),
+                if (_calculatedData != null) ...[
+                  const SizedBox(height: 32),
+                  ResultSection(nutritionData: _calculatedData!),
+                ],
+                const SizedBox(height: 20),
               ],
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildSectionCard({
-    required String title,
-    required IconData icon,
-    required List<Widget> children,
-  }) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-        border: Border.all(
-          color: Colors.grey.withOpacity(0.2),
-          width: 1,
+  Widget _buildPersonalInfoSection() {
+    return SectionCard(
+      title: 'Informasi Pribadi',
+      icon: Icons.person_rounded,
+      children: [
+        CustomTextField(
+          controller: _nameController,
+          label: 'Nama Lengkap',
+          icon: Icons.badge_rounded,
+          validator: FormValidators.validateName,
         ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        const SizedBox(height: 16),
+        Row(
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    icon,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-              ],
+            Expanded(
+              child: CustomTextField(
+                controller: _ageController,
+                label: 'Usia',
+                icon: Icons.cake_rounded,
+                keyboardType: TextInputType.number,
+                validator: FormValidators.validateAge,
+              ),
             ),
-            const SizedBox(height: 16),
-            ...children,
+            const SizedBox(width: 12),
+            Expanded(
+              child: CustomDropdown(
+                value: _gender,
+                label: 'Jenis Kelamin',
+                icon: Icons.wc_rounded,
+                items: const ['Pria', 'Wanita'],
+                onChanged: (value) => setState(() => _gender = value!),
+              ),
+            ),
           ],
         ),
-      ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: CustomTextField(
+                controller: _weightController,
+                label: 'Berat (kg)',
+                icon: Icons.monitor_weight_rounded,
+                keyboardType: TextInputType.number,
+                validator: FormValidators.validateWeight,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: CustomTextField(
+                controller: _heightController,
+                label: 'Tinggi (cm)',
+                icon: Icons.height_rounded,
+                keyboardType: TextInputType.number,
+                validator: FormValidators.validateHeight,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSportsDataSection() {
+    return SectionCard(
+      title: 'Data Olahraga',
+      icon: Icons.fitness_center_rounded,
+      children: [
+        CustomDropdown(
+          value: _sportType,
+          label: 'Jenis Olahraga',
+          icon: Icons.sports_gymnastics_rounded,
+          items: const [
+            'Strength/Muscle',
+            'Endurance/Running',
+            'Mixed/Team Sport',
+          ],
+          onChanged: (value) => setState(() => _sportType = value!),
+        ),
+        const SizedBox(height: 16),
+        CustomDropdown(
+          value: _intensity,
+          label: 'Intensitas Latihan',
+          icon: Icons.speed_rounded,
+          items: const [
+            'Sedentary',
+            'Ringan',
+            'Sedang',
+            'Berat',
+            'Atlet Intens',
+          ],
+          onChanged: (value) => setState(() => _intensity = value!),
+        ),
+        const SizedBox(height: 16),
+        CustomDropdown(
+          value: _goal,
+          label: 'Tujuan',
+          icon: Icons.flag_rounded,
+          items: const [
+            'Cutting',
+            'Maintenance',
+            'Bulking',
+          ],
+          onChanged: (value) => setState(() => _goal = value!),
+        ),
+      ],
     );
   }
 }

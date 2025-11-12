@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../models/nutrition_data.dart';
+import '../../models/nutrition_data.dart';
 
 class NutritionCard extends StatefulWidget {
   final NutritionData nutritionData;

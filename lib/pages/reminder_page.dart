@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:nutrisport/services/notification_service.dart';
+import '../models/reminder_model.dart';
+import '../services/reminder_storage_service.dart';
+import '../services/notification_service.dart';
+import '../utils/reminder_helpers.dart';
+import '../widgets/reminder/reminder_widgets.dart';
 
 class ReminderPage extends StatefulWidget {
   const ReminderPage({super.key});
@@ -8,55 +12,45 @@ class ReminderPage extends StatefulWidget {
   State<ReminderPage> createState() => _ReminderPageState();
 }
 
-class _ReminderPageState extends State<ReminderPage> {
+class _ReminderPageState extends State<ReminderPage>
+    with SingleTickerProviderStateMixin {
   TimeOfDay _trainingTime = TimeOfDay.now();
   final List<Reminder> _reminders = [];
+
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
-    _loadDefaultReminders();
+    _initAnimation();
+    _loadData();
   }
 
-  void _loadDefaultReminders() {
+  void _initAnimation() {
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    );
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadData() async {
+    _trainingTime = await ReminderStorageService.loadTrainingTime();
+    final reminders = await ReminderStorageService.loadReminders();
     setState(() {
-      _reminders.addAll([
-        Reminder(
-          id: 1,
-          title: 'Pre-workout Meal',
-          description: 'Makan 1.5 jam sebelum latihan - Oatmeal dengan buah atau roti gandum dengan telur',
-          isActive: true,
-          offset: const Duration(hours: 1, minutes: 30),
-        ),
-        Reminder(
-          id: 2,
-          title: 'Konsumsi Creatine',
-          description: '5g creatine dengan air - Konsumsi 30 menit sebelum latihan',
-          isActive: true,
-          offset: const Duration(minutes: 30),
-        ),
-        Reminder(
-          id: 3,
-          title: 'Siapkan Minuman Isotonik',
-          description: 'Siapkan minuman isotonik untuk latihan > 1.5 jam',
-          isActive: false,
-          offset: const Duration(minutes: 15),
-        ),
-        Reminder(
-          id: 4,
-          title: 'Post-workout Meal',
-          description: 'Makan dalam 30 menit setelah latihan - Protein tinggi + karbohidrat kompleks',
-          isActive: true,
-          offset: const Duration(hours: -1), // Negative duration for after training
-        ),
-        Reminder(
-          id: 5,
-          title: 'Konsumsi Whey Protein',
-          description: '30g whey protein setelah latihan - Dalam 45 menit setelah latihan',
-          isActive: true,
-          offset: const Duration(hours: -1, minutes: -15), // 1 hour 15 minutes after
-        ),
-      ]);
+      _reminders.clear();
+      _reminders.addAll(reminders);
     });
   }
 
@@ -64,61 +58,159 @@ class _ReminderPageState extends State<ReminderPage> {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: _trainingTime,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            timePickerTheme: TimePickerThemeData(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
-    
+
     if (picked != null) {
-      setState(() {
-        _trainingTime = picked;
-      });
+      setState(() => _trainingTime = picked);
+      await ReminderStorageService.saveTrainingTime(picked);
     }
   }
 
-  void _scheduleReminders() {
-    final now = DateTime.now();
-    final trainingDateTime = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      _trainingTime.hour,
-      _trainingTime.minute,
-    );
-
-    // Jika waktu latihan sudah lewat hari ini, schedule untuk besok
-    final scheduledTrainingTime = trainingDateTime.isBefore(now)
-        ? trainingDateTime.add(const Duration(days: 1))
-        : trainingDateTime;
-
-    int scheduledCount = 0;
-
-    for (final reminder in _reminders) {
-      if (reminder.isActive) {
-        final reminderTime = scheduledTrainingTime.subtract(reminder.offset);
-        
-        if (reminderTime.isAfter(now)) {
-          NotificationService.scheduleNotification(
-            id: reminder.id,
-            title: reminder.title,
-            body: reminder.description,
-            scheduledTime: reminderTime,
-          );
-          scheduledCount++;
-        }
-      }
+  void _scheduleReminders() async {
+    final activeReminders = _reminders.where((r) => r.isActive).toList();
+    
+    if (activeReminders.isEmpty) {
+      _showNoActiveRemindersSnackbar();
+      return;
     }
 
+    final result = await ReminderHelpers.scheduleReminders(
+      reminders: _reminders,
+      trainingTime: _trainingTime,
+    );
+
+    await ReminderStorageService.saveReminders(_reminders);
+
+    if (!mounted) return;
+    _showScheduleResultSnackbar(result);
+  }
+
+  void _showNoActiveRemindersSnackbar() {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('$scheduledCount pengingat berhasil dijadwalkan untuk ${_formatTime(scheduledTrainingTime)}'),
+        content: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.white),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text('Tidak ada pengingat yang aktif. Aktifkan minimal 1 pengingat terlebih dahulu.'),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.orange[700],
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
         duration: const Duration(seconds: 3),
       ),
     );
   }
 
-  void _toggleReminder(int id) {
+  void _showScheduleResultSnackbar(Map<String, int> result) {
+  final scheduledCount = result['scheduled']!;
+  final skippedCount = result['skipped']!;
+  final isToday = result['isToday']! == 1;
+  
+  final now = DateTime.now();
+  
+  // Gunakan logika yang sama dengan ReminderHelpers
+  final trainingDateTime = DateTime(
+    now.year,
+    now.month,
+    now.day,
+    _trainingTime.hour,
+    _trainingTime.minute,
+  );
+  
+  // Tentukan waktu training yang benar
+  final scheduledTrainingTime = isToday ? trainingDateTime : trainingDateTime.add(const Duration(days: 1));
+  
+  // Format waktu dengan benar
+  final formattedTime = ReminderHelpers.formatTime(scheduledTrainingTime);
+  final dayInfo = isToday ? 'hari ini' : 'besok';
+
+  if (scheduledCount == 0 && skippedCount > 0) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.info_outline_rounded, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Semua pengingat sudah melewati waktu hari ini. Pengingat akan dijadwalkan untuk $dayInfo pukul $formattedTime',
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.blue[700],
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  } else if (scheduledCount > 0) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '$scheduledCount pengingat berhasil dijadwalkan',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  if (skippedCount > 0)
+                    Text(
+                      '$skippedCount pengingat dilewati (sudah lewat waktu)',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  Text(
+                    'Untuk latihan $dayInfo pukul $formattedTime',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+}
+
+  void _toggleReminder(int id) async {
     setState(() {
       final reminder = _reminders.firstWhere((r) => r.id == id);
       reminder.isActive = !reminder.isActive;
     });
+    await ReminderStorageService.saveReminders(_reminders);
   }
 
   void _testNotification() {
@@ -128,248 +220,101 @@ class _ReminderPageState extends State<ReminderPage> {
     );
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Test notifikasi berhasil dikirim')),
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.notifications_active, color: Colors.white),
+            SizedBox(width: 12),
+            Text('Test notifikasi berhasil dikirim'),
+          ],
+        ),
+        backgroundColor: Colors.blue,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
     );
   }
 
   void _cancelAllNotifications() {
     NotificationService.cancelAllNotifications();
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Semua pengingat dibatalkan')),
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.notifications_off, color: Colors.white),
+            SizedBox(width: 12),
+            Text('Semua pengingat dibatalkan'),
+          ],
+        ),
+        backgroundColor: Colors.orange,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
     );
-  }
-
-  String _formatTime(DateTime time) {
-    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
-  }
-
-  String _getOffsetText(Duration offset) {
-    if (offset.inHours > 0) {
-      final hours = offset.inHours;
-      final minutes = offset.inMinutes.remainder(60);
-      if (minutes > 0) {
-        return '$hours jam $minutes menit sebelum latihan';
-      }
-      return '$hours jam sebelum latihan';
-    } else if (offset.inMinutes > 0) {
-      return '${offset.inMinutes} menit sebelum latihan';
-    } else if (offset.inMinutes < 0) {
-      final minutes = offset.inMinutes.abs();
-      if (minutes > 60) {
-        final hours = minutes ~/ 60;
-        final remainingMinutes = minutes.remainder(60);
-        if (remainingMinutes > 0) {
-          return '$hours jam $remainingMinutes menit setelah latihan';
-        }
-        return '$hours jam setelah latihan';
-      }
-      return '$minutes menit setelah latihan';
-    } else {
-      return 'Saat latihan dimulai';
-    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
+      backgroundColor: isDark ? Colors.grey[900] : Colors.grey[50],
       appBar: AppBar(
         title: const Text('Pengingat Makan & Suplemen'),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_active),
+            icon: const Icon(Icons.notifications_active_rounded),
             onPressed: _testNotification,
             tooltip: 'Test Notifikasi',
           ),
           IconButton(
-            icon: const Icon(Icons.notifications_off),
+            icon: const Icon(Icons.notifications_off_rounded),
             onPressed: _cancelAllNotifications,
-            tooltip: 'Batalkan Semua Pengingat',
+            tooltip: 'Batalkan Semua',
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // Training Time Selection
-            Card(
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    const Text(
-                      'Atur Jam Latihan',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ListTile(
-                      leading: const Icon(Icons.access_time, color: Colors.blue),
-                      title: const Text('Jam Latihan'),
-                      subtitle: Text(
-                        _trainingTime.format(context),
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.edit),
-                        onPressed: _selectTrainingTime,
-                      ),
-                      onTap: _selectTrainingTime,
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: _scheduleReminders,
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 50),
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: const Text('Jadwalkan Semua Pengingat'),
-                    ),
-                  ],
-                ),
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ReminderInfoBanner(isDark: isDark),
+              const SizedBox(height: 24),
+              TrainingTimeSection(
+                isDark: isDark,
+                trainingTime: _trainingTime,
+                onSelectTime: _selectTrainingTime,
+                onSchedule: _scheduleReminders,
               ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Reminders List
-            const Text(
-              'Daftar Pengingat',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+              const SizedBox(height: 24),
+              RemindersHeader(
+                isDark: isDark,
+                activeCount: _reminders.where((r) => r.isActive).length,
+                totalCount: _reminders.length,
               ),
-            ),
-            const SizedBox(height: 16),
-
-            ..._reminders.map((reminder) => _buildReminderCard(reminder)),
-
-            // Tips Section
-            const SizedBox(height: 24),
-            _buildTipsSection(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildReminderCard(Reminder reminder) {
-    return Card(
-      elevation: 4,
-      margin: const EdgeInsets.only(bottom: 12),
-      color: reminder.isActive ? null : Colors.grey[100],
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Switch(
-              value: reminder.isActive,
-              onChanged: (_) => _toggleReminder(reminder.id),
-              activeColor: Colors.blue,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    reminder.title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: reminder.isActive ? null : Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    reminder.description,
-                    style: TextStyle(
-                      color: reminder.isActive ? Colors.grey[600] : Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _getOffsetText(reminder.offset),
-                    style: TextStyle(
-                      color: reminder.isActive ? Colors.blue[600] : Colors.grey,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTipsSection() {
-    return Card(
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Tips Pengaturan Pengingat',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            _buildTipItem('Pilih jam latihan yang sesuai dengan jadwal rutin Anda'),
-            _buildTipItem('Aktifkan hanya pengingat yang diperlukan'),
-            _buildTipItem('Pre-workout meal: 1-2 jam sebelum latihan'),
-            _buildTipItem('Post-workout nutrition: dalam 30-60 menit setelah latihan'),
-            _buildTipItem('Notifikasi akan muncul sesuai jadwal yang ditetapkan'),
-            _buildTipItem('Pastikan izin notifikasi diaktifkan pada pengaturan perangkat'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTipItem(String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.info, size: 16, color: Colors.blue[400]),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: 14),
-            ),
+              const SizedBox(height: 16),
+              ..._reminders.map((reminder) => ReminderCard(
+                    reminder: reminder,
+                    isDark: isDark,
+                    onToggle: _toggleReminder,
+                  )),
+              const SizedBox(height: 24),
+              TipsSection(isDark: isDark),
+              const SizedBox(height: 20),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
-}
-
-class Reminder {
-  final int id;
-  final String title;
-  final String description;
-  bool isActive;
-  final Duration offset;
-
-  Reminder({
-    required this.id,
-    required this.title,
-    required this.description,
-    required this.isActive,
-    required this.offset,
-  });
 }
